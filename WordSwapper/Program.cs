@@ -89,10 +89,6 @@ namespace WordSwapper
                 replacedString = _replaceWithCase(replacedString, stringToFindRegex, replacementRegex);
             }
 
-            // Make the first word and any words that follow a line break or period begin with an upper case letter.
-            // NOTE: This is no longer needed because I now check to see if the word we're replacing began with an uppercase letter. Still I wanted to perform a check-in so I remember this code.
-            //replacedString = Regex.Replace(replacedString, @"(^|\n|\.\s)(\w)", x => x.Groups[1].Value + x.Groups[2].Value.ToUpper());
-
             // Get rid of all of the indicators that we inserted to show that a word had already been replaced.
             replacedString = Regex.Replace(replacedString, @settings.ReplacementIndicatorRegex, @"");
 
