@@ -14,3 +14,4 @@ Swaps a list of pre-defined words with replacements.
   - Example: "His" can sometimes be swapped for "her", but in some cases it should be swapped for "hers"
     - "He broke his glasses" -> "She broke her glasses"
     - "The pencil is his" -> "The pencil is hers"
+- Add code to allow web requests to pull the HTML from a user-provided URL rather than requiring the source text to be in a file in the Sources directory.
