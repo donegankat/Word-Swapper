@@ -2,8 +2,7 @@
 Swaps a list of pre-defined words with replacements.
 
 # Notes
-- You must create a directory called Sources at /WordSwapper/Sources.
-  - Place any files you want to read from and perform the swapping on into this directory.
+- Place any files you want to read from and perform the swapping on into the Sources folder.
   - Any files that you run this program on will have a copy created in this Sources folder called [file name]_Swapped.[extension] which will contain the results of the swap.
 - Define any words you want to find and swap in appSettings.WordsToSwap.json.
   - Pluralizations are automatically performed if the CanBePlural flag is set to true.
