@@ -6,14 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Sources\PUT FILES TO SWAP HERE.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Sources\PUT FILES TO SWAP HERE.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Inflector" Version="1.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="2.0.2" />
@@ -33,9 +25,6 @@
     </None>
     <None Update="appSettings.WordsToSwap.Extra.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Sources\Jezebel.txt">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
