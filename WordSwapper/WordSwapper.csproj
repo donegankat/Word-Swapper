@@ -17,6 +17,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="appSettings.PartsOfSpeechTags.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="appSettings.WordsToSwap.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -26,6 +29,10 @@
     <None Update="appSettings.WordsToSwap.Extra.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Tagger\" />
   </ItemGroup>
 
 </Project>

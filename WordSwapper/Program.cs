@@ -1,9 +1,14 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Web;
+using WordSwapper.Models;
 using WordSwapper.Settings;
 
 namespace WordSwapper
@@ -20,6 +25,7 @@ namespace WordSwapper
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .AddJsonFile("appSettings.WordsToSwap.json", reloadOnChange: true, optional: true)
+            .AddJsonFile("appSettings.PartsOfSpeechTags.json", reloadOnChange: true, optional: true)
             .AddEnvironmentVariables();
 
             var configuration = builder.Build();
@@ -87,6 +93,14 @@ namespace WordSwapper
                 var stringToFindRegex = $@"\b({word.Word}){negativeLookAhead}\b";
                 var replacementRegex = $@"{word.Replacement}{_settings.ReplacementIndicator}";
 
+                if (word.IsSpecialCase)
+                {
+                    // TODO: Find sentences containing the special case words.
+                    // TODO: Perform _tagPartsOfSpeech on these sentences and figure out if we can identify which word we should replace the target word with.
+                    // This will all take some additional thought and consideration about how I want to store these special cases in the .json.
+                    // Testing also needs to be performed in order to figure out if the NLP API I'm using will actually work in most cases for the intended purpose.
+                }
+
                 // Perform replacements on anything that's left over (i.e. the singular, non-possessive form of the word)
                 stringToSwap = _replaceWithCase(stringToSwap, stringToFindRegex, replacementRegex);
             }
@@ -118,6 +132,29 @@ namespace WordSwapper
                     Char.ToUpper(replacement[0]) + replacement.Substring(1) : // If the first letter in the string we're replacing is upper-case, have the replacement begin with an upper-case letter
                     replacement, // Otherwise just replace with the regular string
                 RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture);
+        }
+
+        private static List<PartsOfSpeechResult> _tagPartsOfSpeech(string textToTag)
+        {
+            HttpClient httpClient = new HttpClient();
+            var textContent = new StringContent($"text={textToTag}&output=iob", UnicodeEncoding.UTF8, "application/json");
+            HttpResponseMessage response = httpClient.PostAsync(_settings.NlpApiUrl, textContent).Result;
+            if (response.IsSuccessStatusCode)
+            {
+                var responseData = response.Content.ReadAsStringAsync().Result;
+
+                List<PartsOfSpeechResult> posResults = new List<PartsOfSpeechResult>();
+                var deserialized = JsonConvert.DeserializeObject<PartsOfSpeechResponse>(responseData);
+                //deserialized.Text = deserialized.Text.
+                //var y = deserialized.
+                foreach (var taggedChunk in deserialized.Text.Split("\n"))
+                {
+                    var splitResult = taggedChunk.Split(' ');
+                    posResults.Add(new PartsOfSpeechResult(_settings, splitResult[0], splitResult[1], splitResult[2]));
+                }
+                return posResults;
+            }
+            return null;
         }
 
         private static string _loadFile(string fileName)
