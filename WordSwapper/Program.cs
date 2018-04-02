@@ -12,6 +12,7 @@ namespace WordSwapper
     {
         private static string _currentDirectory = Directory.GetCurrentDirectory();
         private static string _rootProjectDirectory = _currentDirectory.Remove(_currentDirectory.IndexOf("\\bin"));
+        private static AppSettings _settings;
 
         private static AppSettings _configureAppSettings()
         {
@@ -31,16 +32,17 @@ namespace WordSwapper
 
         static void Main(string[] args)
         {
-            var settings = _configureAppSettings();
+            _settings = _configureAppSettings();
             CustomPluralizer pluralizer = new CustomPluralizer();
 
             var fileName = "";
             while (true) // Loop until we get a valid file name.
             {
                 Console.WriteLine("Enter the file name that you wish to swap:");
+                Console.WriteLine($"(File must be in {_rootProjectDirectory}\\{_settings.SourceDirectory})");
                 fileName = Console.ReadLine();
 
-                if (File.Exists($"{_rootProjectDirectory}/Sources/{fileName}")) // The user input a valid file name, so no need to keep looping.
+                if (File.Exists($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}")) // The user input a valid file name, so no need to keep looping.
                 {
                     Console.Clear();
                     break;
@@ -54,12 +56,12 @@ namespace WordSwapper
             
             var stringToSwap = _loadFile(fileName);
 
-            Console.WriteLine($"Original string: {stringToSwap}");
+            Console.WriteLine("ORIGINAL TEXT:");
+            Console.WriteLine(stringToSwap);
 
-            string replacedString = stringToSwap;
-            var negativeLookAhead = $@"(?!{settings.ReplacementIndicatorRegex})"; // This is a negative look-ahead indicator that we can add to the end of regex searches for each word so we don't replace words that we've already replaced
+            var negativeLookAhead = $@"(?!{_settings.ReplacementIndicatorRegex})"; // This is a negative look-ahead indicator that we can add to the end of regex searches for each word so we don't replace words that we've already replaced
 
-            foreach (var word in settings.WordSwap)
+            foreach (var word in _settings.WordSwap)
             {
                 if (word.CanBePlural)
                 {
@@ -67,40 +69,45 @@ namespace WordSwapper
                     string pluralReplacement = pluralizer.Pluralize(word.Replacement);
 
                     var pluralStringToFindRegex = $@"\b({pluralStringToFind}){negativeLookAhead}\b";
-                    var pluralReplacementRegex = $@"{pluralReplacement}{settings.ReplacementIndicator}";
+                    var pluralReplacementRegex = $@"{pluralReplacement}{_settings.ReplacementIndicator}";
 
                     // Perform replacements on any plural variations of the word
-                    replacedString = _replaceWithCase(replacedString, pluralStringToFindRegex, pluralReplacementRegex);
+                    stringToSwap = _replaceWithCase(stringToSwap, pluralStringToFindRegex, pluralReplacementRegex);
                 }                
 
                 if (word.CanBePossessive)
                 {
                     var possessiveStringToFind = $@"\b({word.Word})('s){negativeLookAhead}\b";
-                    var possessiveReplacement = $@"{word.Replacement}'s{settings.ReplacementIndicator}";
+                    var possessiveReplacement = $@"{word.Replacement}'s{_settings.ReplacementIndicator}";
 
                     // Perform replacements on any possessive variations of the word
-                    replacedString = _replaceWithCase(replacedString, possessiveStringToFind, possessiveReplacement);
+                    stringToSwap = _replaceWithCase(stringToSwap, possessiveStringToFind, possessiveReplacement);
                 }
 
                 var stringToFindRegex = $@"\b({word.Word}){negativeLookAhead}\b";
-                var replacementRegex = $@"{word.Replacement}{settings.ReplacementIndicator}";
+                var replacementRegex = $@"{word.Replacement}{_settings.ReplacementIndicator}";
 
                 // Perform replacements on anything that's left over (i.e. the singular, non-possessive form of the word)
-                replacedString = _replaceWithCase(replacedString, stringToFindRegex, replacementRegex);
+                stringToSwap = _replaceWithCase(stringToSwap, stringToFindRegex, replacementRegex);
             }
 
             // Get rid of all of the indicators that we inserted to show that a word had already been replaced.
-            replacedString = Regex.Replace(replacedString, @settings.ReplacementIndicatorRegex, @"");
+            stringToSwap = Regex.Replace(stringToSwap, @_settings.ReplacementIndicatorRegex, @"");
 
             Console.WriteLine();
             Console.WriteLine("==========================");
             Console.WriteLine();
-            Console.WriteLine($"New string: {replacedString}");
+            Console.WriteLine("NEW TEXT:");
+            Console.WriteLine(stringToSwap);
 
             // Save the file as: [original file name]_Swapped.[extension]
             var extension = Path.GetExtension(fileName);
-            _saveFile(fileName.Replace(extension, $"_Swapped{extension}"), replacedString);
+            _saveFile(fileName.Replace(extension, $"_Swapped{extension}"), stringToSwap);
 
+            Console.WriteLine();
+            Console.WriteLine("==========================");
+            Console.WriteLine();
+            Console.WriteLine("Press any key to exit");
             Console.ReadKey();
         }
 
@@ -115,12 +122,12 @@ namespace WordSwapper
 
         private static string _loadFile(string fileName)
         {
-            return File.ReadAllText($"{_rootProjectDirectory}/Sources/{fileName}");
+            return File.ReadAllText($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}");
         }
 
         private static void _saveFile(string fileName, string fileText)
         {            
-            File.WriteAllText($"{_rootProjectDirectory}/Sources/{fileName}", fileText);
+            File.WriteAllText($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}", fileText);
         }
     }
 }

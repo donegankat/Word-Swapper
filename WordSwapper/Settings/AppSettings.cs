@@ -8,6 +8,7 @@ namespace WordSwapper.Settings
     {
         public string ReplacementIndicator { get; set; }
         public string ReplacementIndicatorRegex { get; set; }
+        public string SourceDirectory { get; set; }
         public List<WordSwap> WordSwap { get; set; }
     }
 }
