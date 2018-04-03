@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using HtmlAgilityPack;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -18,6 +19,7 @@ namespace WordSwapper
         private static string _currentDirectory = Directory.GetCurrentDirectory();
         private static string _rootProjectDirectory = _currentDirectory.Remove(_currentDirectory.IndexOf("\\bin"));
         private static AppSettings _settings;
+        private static CustomPluralizer _pluralizer;
 
         private static AppSettings _configureAppSettings()
         {
@@ -39,9 +41,57 @@ namespace WordSwapper
         static void Main(string[] args)
         {
             _settings = _configureAppSettings();
-            CustomPluralizer pluralizer = new CustomPluralizer();
+            _pluralizer = new CustomPluralizer();
 
+            var runMode = ProgramRunMode.Undefined;
+            while (true) // Loop until we get a valid mode selection.
+            {
+                Console.WriteLine("Select a run option (Default is 1):");
+                Console.WriteLine("   1 - Swap words in a local file");
+                Console.WriteLine("   2 - Swap words from the text at a URL");
+
+                var userInput = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(userInput) || userInput == "1") // The user input a valid mode selection, so no need to keep looping.
+                {
+                    Console.Clear();
+                    runMode = ProgramRunMode.File;
+                    break;
+                }
+                else if (userInput == "2") // The user input a valid mode selection, so no need to keep looping.
+                {
+                    Console.Clear();
+                    runMode = ProgramRunMode.Web;
+                    break;
+                }
+                else // The user gave an invalid mode selection. Loop and re-prompt them.
+                {
+                    Console.WriteLine("INVALID MODE SELECTION");
+                    Console.WriteLine();
+                }
+            }
+
+            if (runMode == ProgramRunMode.File)
+            {
+                _swapLocalFile();
+            }
+            else if (runMode == ProgramRunMode.Web)
+            {
+                _swapHtmlFromUrl();
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("==========================");
+            Console.WriteLine();
+            Console.WriteLine("Press any key to exit");
+            Console.ReadKey();
+        }
+
+        #region Main Swappers
+
+        private static void _swapLocalFile()
+        {
             var fileName = "";
+
             while (true) // Loop until we get a valid file name.
             {
                 Console.WriteLine("Enter the file name that you wish to swap:");
@@ -59,27 +109,97 @@ namespace WordSwapper
                     Console.WriteLine();
                 }
             }
-            
+
             var stringToSwap = _loadFile(fileName);
+            var extension = Path.GetExtension(fileName);
+
+            if (extension == ".html") // If the user wants to perform a swap on a local .html file, parse the html
+            {
+                stringToSwap = _getHtmlTextFromFile(stringToSwap);
+            }
 
             Console.WriteLine("ORIGINAL TEXT:");
             Console.WriteLine(stringToSwap);
 
+            stringToSwap = _performSwap(stringToSwap); // Perform the actual swap
+
+            Console.WriteLine();
+            Console.WriteLine("==========================");
+            Console.WriteLine();
+            Console.WriteLine("NEW TEXT:");
+            Console.WriteLine(stringToSwap);
+
+            // Save the file as: [original file name]_Swapped.[extension]
+            _saveFile(fileName.Replace(extension, $"_Swapped{extension}"), stringToSwap);
+        }
+
+        private static void _swapHtmlFromUrl()
+        {
+            var url = "";
+
+            while (true) // Loop until we get a valid URL.
+            {
+                Console.WriteLine("Enter the URL for the page you wish to swap:");
+                url = Console.ReadLine();
+
+                // TODO: Add some sort of validation to make sure the user gave us a valid URL
+                if (!string.IsNullOrWhiteSpace(url)) // The user input a valid URL, so no need to keep looping.
+                {
+                    if (!url.StartsWith("http://") && !url.StartsWith("https://")) // If the URL we were given doesn't start with http:// or https://, reject it and re-prompt
+                    {
+                        Console.WriteLine("PLEASE ENTER FULLY-QUALIFIED URL (i.e. beginning with http:// or https://)");
+                        Console.WriteLine();
+                    }
+                    else
+                    {
+                        Console.Clear();
+                        break;
+                    }
+                }
+                else // The user gave an invalid URL. Loop and re-prompt them.
+                {
+                    Console.WriteLine("INVALID URL");
+                    Console.WriteLine();
+                }
+            }
+
+            var stringToSwap = _getHtmlTextFromUrl(url);
+
+            Console.WriteLine("ORIGINAL TEXT:");
+            Console.WriteLine(stringToSwap);
+
+            stringToSwap = _performSwap(stringToSwap); // Perform the actual swap
+
+            Console.WriteLine();
+            Console.WriteLine("==========================");
+            Console.WriteLine();
+            Console.WriteLine("NEW TEXT:");
+            Console.WriteLine(stringToSwap);
+
+            // Save the file as: [original file name]_Swapped.[extension]
+            var extension = ".txt";
+            var stringifiedUrl = Regex.Replace(url, @"https?:\/\/(www\.)?", @"", RegexOptions.IgnoreCase); // Get rid of http://, https://, and www.
+            stringifiedUrl = Regex.Replace(stringifiedUrl, @"(\.|\/|\\)", @"_", RegexOptions.IgnoreCase); // Replace ., /, and \ with _
+            _saveFile($"{stringifiedUrl}_Swapped{extension}", stringToSwap);
+        }
+
+        private static string _performSwap(string stringToSwap)
+        {
             var negativeLookAhead = $@"(?!{_settings.ReplacementIndicatorRegex})"; // This is a negative look-ahead indicator that we can add to the end of regex searches for each word so we don't replace words that we've already replaced
 
             foreach (var word in _settings.WordSwap)
             {
                 if (word.CanBePlural)
                 {
-                    string pluralStringToFind = pluralizer.Pluralize(word.Word);
-                    string pluralReplacement = pluralizer.Pluralize(word.Replacement);
+                    string pluralStringToFind = _pluralizer.Pluralize(word.Word);
+                    string pluralReplacement = _pluralizer.Pluralize(word.Replacement);
 
                     var pluralStringToFindRegex = $@"\b({pluralStringToFind}){negativeLookAhead}\b";
                     var pluralReplacementRegex = $@"{pluralReplacement}{_settings.ReplacementIndicator}";
 
                     // Perform replacements on any plural variations of the word
                     stringToSwap = _replaceWithCase(stringToSwap, pluralStringToFindRegex, pluralReplacementRegex);
-                }                
+                }
 
                 if (word.CanBePossessive)
                 {
@@ -108,22 +228,12 @@ namespace WordSwapper
             // Get rid of all of the indicators that we inserted to show that a word had already been replaced.
             stringToSwap = Regex.Replace(stringToSwap, @_settings.ReplacementIndicatorRegex, @"");
 
-            Console.WriteLine();
-            Console.WriteLine("==========================");
-            Console.WriteLine();
-            Console.WriteLine("NEW TEXT:");
-            Console.WriteLine(stringToSwap);
-
-            // Save the file as: [original file name]_Swapped.[extension]
-            var extension = Path.GetExtension(fileName);
-            _saveFile(fileName.Replace(extension, $"_Swapped{extension}"), stringToSwap);
-
-            Console.WriteLine();
-            Console.WriteLine("==========================");
-            Console.WriteLine();
-            Console.WriteLine("Press any key to exit");
-            Console.ReadKey();
+            return stringToSwap;
         }
+        #endregion
+
+
+        #region Text Functions
 
         private static string _replaceWithCase(string source, string stringToFind, string replacement)
         {
@@ -137,25 +247,80 @@ namespace WordSwapper
         private static List<PartsOfSpeechResult> _tagPartsOfSpeech(string textToTag)
         {
             HttpClient httpClient = new HttpClient();
+            
             var textContent = new StringContent($"text={textToTag}&output=iob", UnicodeEncoding.UTF8, "application/json");
-            HttpResponseMessage response = httpClient.PostAsync(_settings.NlpApiUrl, textContent).Result;
-            if (response.IsSuccessStatusCode)
-            {
-                var responseData = response.Content.ReadAsStringAsync().Result;
 
-                List<PartsOfSpeechResult> posResults = new List<PartsOfSpeechResult>();
-                var deserialized = JsonConvert.DeserializeObject<PartsOfSpeechResponse>(responseData);
-                //deserialized.Text = deserialized.Text.
-                //var y = deserialized.
-                foreach (var taggedChunk in deserialized.Text.Split("\n"))
+            try
+            {
+                HttpResponseMessage response = httpClient.PostAsync(_settings.NlpApiUrl, textContent).Result;
+                if (response.IsSuccessStatusCode)
                 {
-                    var splitResult = taggedChunk.Split(' ');
-                    posResults.Add(new PartsOfSpeechResult(_settings, splitResult[0], splitResult[1], splitResult[2]));
+                    var responseData = response.Content.ReadAsStringAsync().Result;
+
+                    List<PartsOfSpeechResult> posResults = new List<PartsOfSpeechResult>();
+                    var deserialized = JsonConvert.DeserializeObject<PartsOfSpeechResponse>(responseData);
+
+                    foreach (var taggedChunk in deserialized.Text.Split("\n"))
+                    {
+                        var splitResult = taggedChunk.Split(' ');
+                        posResults.Add(new PartsOfSpeechResult(_settings, splitResult[0], splitResult[1], splitResult[2]));
+                    }
+                    return posResults;
                 }
-                return posResults;
+
+                return null;
             }
-            return null;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"EXCEPTION: Failed to tag parts of speech - {ex.Message}\n{ex.StackTrace}");
+                throw new Exception($"EXCEPTION: Failed to tag parts of speech - {ex.Message}\n{ex.StackTrace}");
+            }
         }
+
+        #endregion
+
+        #region HtmlFunctions
+
+        private static string _getHtmlTextFromUrl(string url)
+        {
+            try
+            {
+                var web = new HtmlWeb();
+                var html = web.Load(url);
+                var htmlDoc = new HtmlParser(html);
+                htmlDoc.RemoveScripts();
+                return htmlDoc.ExtractText().Trim();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"EXCEPTION: Failed to fetch HTML - {ex.Message}\n{ex.StackTrace}");
+                throw new Exception($"EXCEPTION: Failed to fetch HTML - {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Used in case the user wants to provide a .html local file as the source.
+        /// </summary>
+        /// <param name="fileContents"></param>
+        /// <returns></returns>
+        private static string _getHtmlTextFromFile(string fileContents)
+        {
+            try
+            {
+                var htmlDoc = new HtmlParser(fileContents);
+                htmlDoc.RemoveScripts();
+                return htmlDoc.ExtractText().Trim();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"EXCEPTION: Failed to parse HTML from file text - {ex.Message}\n{ex.StackTrace}");
+                throw new Exception($"EXCEPTION: Failed to parse HTML from file text - {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        #endregion
+
+        #region File Functions
 
         private static string _loadFile(string fileName)
         {
@@ -166,5 +331,6 @@ namespace WordSwapper
         {            
             File.WriteAllText($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}", fileText);
         }
+        #endregion
     }
 }
