@@ -197,6 +197,7 @@ namespace WordSwapper
         /// <returns></returns>
         private static string _performSwap(string stringToSwap)
         {
+            var beginningWordBoundary = @"\b"; // Ensure we only look at the beginning of the word.
             var negativeLookAhead = $@"(?!{_settings.ReplacementIndicatorRegex})"; // This is a negative look-ahead indicator that we can add to the end of regex searches for each word so we don't replace words that we've already replaced
 
             foreach (var word in _settings.WordSwap)
@@ -206,14 +207,14 @@ namespace WordSwapper
                     string pluralStringToFind = _pluralizer.Pluralize(word.Word);
                     string pluralReplacement = _pluralizer.Pluralize(word.Replacement);
 
-                    var pluralStringToFindRegex = $@"\b({pluralStringToFind}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
+                    var pluralStringToFindRegex = $@"{beginningWordBoundary}({pluralStringToFind}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
                     var pluralReplacementRegex = $@"{pluralReplacement}{_settings.ReplacementIndicator}";
 
                     // Perform replacements on any plural variations of the word
                     stringToSwap = _replaceWithCase(stringToSwap, pluralStringToFindRegex, pluralReplacementRegex);
                 }
 
-                var stringToFindRegex = $@"\b({word.Word}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
+                var stringToFindRegex = $@"{beginningWordBoundary}({word.Word}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
                 var replacementRegex = $@"{word.Replacement}{_settings.ReplacementIndicator}";
 
                 if (word.IsSpecialCase)
@@ -243,6 +244,8 @@ namespace WordSwapper
         /// If the original word began with a capital letter, the replacement will also begin with a capital letter.
         /// 
         /// TODO: If I ever feel like it I guess I could check each letter for capitalization. The first letter should be fine for most cases, though.
+        /// This TODO actually isn't quite as simple as I originally assumed because I realized that each word may have a different length from its replacement, so I can't just go character-by-character to check upper/lower case.
+        /// If I ever do come back to this, MatchEvaluator is probably my best bet. E.g. Regex.Replace(source, stringToFind, [custom MatchEvaluator()], RegexOptions.IgnoreCase);
         /// </summary>
         /// <param name="source"></param>
         /// <param name="stringToFind"></param>
@@ -250,7 +253,7 @@ namespace WordSwapper
         /// <returns></returns>
         private static string _replaceWithCase(string source, string stringToFind, string replacement)
         {
-            return Regex.Replace(source, stringToFind,
+            return Regex.Replace(source, stringToFind, 
                 x => Char.IsUpper(x.Value[0]) ?
                     Char.ToUpper(replacement[0]) + replacement.Substring(1) : // If the first letter in the string we're replacing is upper-case, have the replacement begin with an upper-case letter
                     replacement, // Otherwise just replace with the regular string

@@ -40,22 +40,25 @@ namespace WordSwapper
 
         public void Sanitize()
         {
+            RemoveHeadSection();
             RemoveScripts();
-            //RemoveHrefLineBreaks(_html.DocumentNode);
+            RemoveHrefLineBreaks(_html.DocumentNode);
         }
 
         private void RemoveHrefLineBreaks(HtmlNode node)
         {
             foreach (var subnode in node.ChildNodes)
             {
-                var href = subnode.Attributes["href"].Value;
-
-                if (!string.IsNullOrEmpty(href))
+                if (subnode.HasAttributes && subnode.Attributes["href"] != null)
                 {
-                    href = Regex.Replace(href, @"[\r|\n]", "");
-                    subnode.SetAttributeValue("href", href);
-                }
+                    var href = subnode.Attributes["href"].Value;
 
+                    if (!string.IsNullOrEmpty(href))
+                    {
+                        href = Regex.Replace(href, @"[\r|\n]", "");
+                        subnode.SetAttributeValue("href", href);
+                    }
+                }
 
                 //Recursivly Go Down the tree and check for further hrefs
                 if (subnode.HasChildNodes)
@@ -75,22 +78,15 @@ namespace WordSwapper
         }
 
         /// <summary>
-        /// Removes the <title></title> tag from the <head></head>
-        /// This is needed because Bee fills in a Bee template-related title
+        /// Removes the <head></head> section and everything in it.
         /// </summary>
-        public string GetHeadTitle()
+        public void RemoveHeadSection()
         {
-            List<string> headTitleTags = new List<string>();
-
-            _html.DocumentNode.Descendants()
+            _html.DocumentNode
+                .Descendants()
                 .Where(node => node.Name == "head")
                 .FirstOrDefault()
-                    .Descendants()
-                    .Where(node => node.Name == "title")
-                    .ToList()
-                    .ForEach(node => headTitleTags.Add(node.InnerText));
-
-            return String.Join(", ", headTitleTags);
+                .RemoveAll();
         }
 
         /// <summary>
@@ -103,7 +99,15 @@ namespace WordSwapper
             //http://htmlagilitypack.codeplex.com/SourceControl/changeset/view/94773#1336937
             using (var sw = new StringWriter())
             {
-                _convertNode(_html.DocumentNode, sw);
+                var articleNode = _html.DocumentNode.SelectSingleNode("//article");
+                if (articleNode != null) // If the document has an <article> tag, that's probably the text we want to extract.
+                {
+                    _convertNode(articleNode, sw);
+                }
+                else // If the document doesn't have an <article> tag, just extract everything.
+                {
+                    _convertNode(_html.DocumentNode, sw);
+                }
                 sw.Flush();
 
                 return sw.ToString();
