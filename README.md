@@ -26,15 +26,14 @@ The following example will find any instance of the word `man` and replace it wi
   - Pluralizations are automatically performed if the `CanBePlural` flag is set to `true`.
 
 # To Do
-- Add natural language processing to identify parts of speech for sentences in order to make the word replacements more accurate.
-  - **Example:** `his` can sometimes be swapped for `her`, but in some cases it should be swapped for `hers`
-    - `He broke his glasses` -> `She broke her glasses`
-    - `The pencil is his` -> `The pencil is hers`
-  - **Update 04/04/2018:** I've added a method to POST to an API that uses NLP to identify the parts of speech in a sentence. More testing needs to be done in order to determine if this API will be suitable enough to accomplish the objective above.
-    - **Note:** This API call is **NOT** currently implemented, but it does work.
-    - **Issues:** (as noted in appSettings.WordsToSwap.json)
-      - "The pencil is his" comes back as PRP$ (Possessive Pronoun), but "The pencil is hers" comes back as NNS (Noun, plural).
-      - "I'm looking at her" comes back as PRP$ (Possessive Pronoun), but "I'm looking at him" comes back as PRP (Personal Pronoun)
-    - Maybe tagging the parts of speech, performing a "mock swap" of the tricky word with both potential replacements, and then re-tagging the string would yield some sort of insight?
-- ~~Add code to allow web requests to pull the HTML from a user-provided URL rather than requiring the source text to be in a file in the Sources directory.~~
-  - **Update 04/04/2018:** This is complete. See update in the Notes section above.
+### Natural Language Processing and Parts of Speech
+Improve accuracy for special words/cases by adding Natural Language Processing to identify parts of speech for sentences.
+- **Example:** `his` can sometimes be swapped for `her`, but in some cases it should be swapped for `hers`
+  - `He broke his glasses` -> `She broke her glasses`
+  - `The pencil is his` -> `The pencil is hers`
+- **Update 04/04/2018:** I've added a method to POST to an API that uses NLP to identify the parts of speech in a sentence. More testing needs to be done in order to determine if this API will be suitable enough to accomplish the objective above.
+  - **Note:** This API call is **NOT** currently implemented, but it does work.
+  - **Issues:** (as noted in appSettings.WordsToSwap.json)
+    - "The pencil is his" comes back as PRP$ (Possessive Pronoun), but "The pencil is hers" comes back as NNS (Noun, plural).
+    - "I'm looking at her" comes back as PRP$ (Possessive Pronoun), but "I'm looking at him" comes back as PRP (Personal Pronoun)
+  - Maybe tagging the parts of speech, performing a "mock swap" of the tricky word with both potential replacements, and then re-tagging the string would yield some sort of insight?
