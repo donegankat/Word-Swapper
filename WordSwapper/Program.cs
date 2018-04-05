@@ -215,8 +215,9 @@ namespace WordSwapper
 
                 if (word.CanBePossessive)
                 {
-                    var possessiveStringToFindRegex = $@"\b({word.Word})('s){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
-                    var possessiveReplacementRegex = $@"{word.Replacement}'s{_settings.ReplacementIndicator}";
+                    // Make sure to check for and add the replacement indicator BEFORE the "'s". Otherwise the singular scanner will pick up these replaced words and swap them back. 
+                    var possessiveStringToFindRegex = $@"\b({word.Word}){negativeLookAhead}'s\b"; // Look for matches that don't already have a replacement indicator
+                    var possessiveReplacementRegex = $@"{word.Replacement}{_settings.ReplacementIndicator}'s";
 
                     // Perform replacements on any possessive variations of the word
                     stringToSwap = _replaceWithCase(stringToSwap, possessiveStringToFindRegex, possessiveReplacementRegex);
