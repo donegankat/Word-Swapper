@@ -37,3 +37,6 @@ Improve accuracy for special words/cases by adding Natural Language Processing t
     - "The pencil is his" comes back as PRP$ (Possessive Pronoun), but "The pencil is hers" comes back as NNS (Noun, plural).
     - "I'm looking at her" comes back as PRP$ (Possessive Pronoun), but "I'm looking at him" comes back as PRP (Personal Pronoun)
   - Maybe tagging the parts of speech, performing a "mock swap" of the tricky word with both potential replacements, and then re-tagging the string would yield some sort of insight?
+  
+### Misc.
+- Separate some of the functions in Program.cs into their own classes where appropriate.
