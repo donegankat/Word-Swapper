@@ -133,6 +133,7 @@ namespace WordSwapper
             _saveFile(fileName.Replace(extension, $"_Swapped{extension}"), stringToSwap);
         }
 
+
         private static void _swapHtmlFromUrl()
         {
             var url = "";
@@ -183,6 +184,17 @@ namespace WordSwapper
             _saveFile($"{stringifiedUrl}_Swapped{extension}", stringToSwap);
         }
 
+
+        /// <summary>
+        /// Searches the provided string for all words defined in appSettings.WordsToSwap.json and performs a replacement on each one.
+        /// This checks singular, plural, and possessive forms of each word according to the settings defined for each word in appSettings.WordsToSwap.json.
+        /// 
+        /// Every time a word is swapped, a special string called the replacement indicator (defined in appSettings.json) is added to the end to signify
+        /// that a word had already been swapped and to not swap it again (e.g. if the swapped form of the word is found later in our list of words to
+        /// swap). This replacement indicator is removed after all swaps have been performed.
+        /// </summary>
+        /// <param name="stringToSwap"></param>
+        /// <returns></returns>
         private static string _performSwap(string stringToSwap)
         {
             var negativeLookAhead = $@"(?!{_settings.ReplacementIndicatorRegex})"; // This is a negative look-ahead indicator that we can add to the end of regex searches for each word so we don't replace words that we've already replaced
@@ -194,7 +206,7 @@ namespace WordSwapper
                     string pluralStringToFind = _pluralizer.Pluralize(word.Word);
                     string pluralReplacement = _pluralizer.Pluralize(word.Replacement);
 
-                    var pluralStringToFindRegex = $@"\b({pluralStringToFind}){negativeLookAhead}\b";
+                    var pluralStringToFindRegex = $@"\b({pluralStringToFind}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
                     var pluralReplacementRegex = $@"{pluralReplacement}{_settings.ReplacementIndicator}";
 
                     // Perform replacements on any plural variations of the word
@@ -203,14 +215,14 @@ namespace WordSwapper
 
                 if (word.CanBePossessive)
                 {
-                    var possessiveStringToFind = $@"\b({word.Word})('s){negativeLookAhead}\b";
-                    var possessiveReplacement = $@"{word.Replacement}'s{_settings.ReplacementIndicator}";
+                    var possessiveStringToFindRegex = $@"\b({word.Word})('s){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
+                    var possessiveReplacementRegex = $@"{word.Replacement}'s{_settings.ReplacementIndicator}";
 
                     // Perform replacements on any possessive variations of the word
-                    stringToSwap = _replaceWithCase(stringToSwap, possessiveStringToFind, possessiveReplacement);
+                    stringToSwap = _replaceWithCase(stringToSwap, possessiveStringToFindRegex, possessiveReplacementRegex);
                 }
 
-                var stringToFindRegex = $@"\b({word.Word}){negativeLookAhead}\b";
+                var stringToFindRegex = $@"\b({word.Word}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
                 var replacementRegex = $@"{word.Replacement}{_settings.ReplacementIndicator}";
 
                 if (word.IsSpecialCase)
@@ -235,6 +247,16 @@ namespace WordSwapper
 
         #region Text Functions
 
+        /// <summary>
+        /// Replaces all instances of one word in a given string with a new replacement word.
+        /// If the original word began with a capital letter, the replacement will also begin with a capital letter.
+        /// 
+        /// TODO: If I ever feel like it I guess I could check each letter for capitalization. The first letter should be fine for most cases, though.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="stringToFind"></param>
+        /// <param name="replacement"></param>
+        /// <returns></returns>
         private static string _replaceWithCase(string source, string stringToFind, string replacement)
         {
             return Regex.Replace(source, stringToFind,
@@ -244,6 +266,12 @@ namespace WordSwapper
                 RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture);
         }
 
+
+        /// <summary>
+        /// Sends a string to a Natural Language Processing API (defined in appSettings.json) and returns the tagged parts of speech from the response.
+        /// </summary>
+        /// <param name="textToTag"></param>
+        /// <returns></returns>
         private static List<PartsOfSpeechResult> _tagPartsOfSpeech(string textToTag)
         {
             HttpClient httpClient = new HttpClient();
@@ -252,7 +280,7 @@ namespace WordSwapper
 
             try
             {
-                HttpResponseMessage response = httpClient.PostAsync(_settings.NlpApiUrl, textContent).Result;
+                HttpResponseMessage response = httpClient.PostAsync(_settings.NlpApiUrl, textContent).Result; // POST to the API and get the response
                 if (response.IsSuccessStatusCode)
                 {
                     var responseData = response.Content.ReadAsStringAsync().Result;
@@ -260,7 +288,8 @@ namespace WordSwapper
                     List<PartsOfSpeechResult> posResults = new List<PartsOfSpeechResult>();
                     var deserialized = JsonConvert.DeserializeObject<PartsOfSpeechResponse>(responseData);
 
-                    foreach (var taggedChunk in deserialized.Text.Split("\n"))
+                    // The API returns a line for each word with its code for what part of speech it is
+                    foreach (var taggedChunk in deserialized.Text.Split("\n")) // Separate each returned line, match it to the PoS tag, and return the words and PoS tags in a list
                     {
                         var splitResult = taggedChunk.Split(' ');
                         posResults.Add(new PartsOfSpeechResult(_settings, splitResult[0], splitResult[1], splitResult[2]));
@@ -281,6 +310,11 @@ namespace WordSwapper
 
         #region HtmlFunctions
 
+        /// <summary>
+        /// Fetches the HTML from a URL and extracts the text content, excluding any scripts.
+        /// </summary>
+        /// <param name="url"></param>
+        /// <returns></returns>
         private static string _getHtmlTextFromUrl(string url)
         {
             try
@@ -299,7 +333,7 @@ namespace WordSwapper
         }
 
         /// <summary>
-        /// Used in case the user wants to provide a .html local file as the source.
+        /// Reads a local HTML file and extracts the text content, excluding any scripts.
         /// </summary>
         /// <param name="fileContents"></param>
         /// <returns></returns>
