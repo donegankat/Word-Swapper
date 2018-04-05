@@ -31,7 +31,7 @@ The following example will find any instance of the word `man` and replace it wi
     - `He broke his glasses` -> `She broke her glasses`
     - `The pencil is his` -> `The pencil is hers`
   - **Update 04/04/2018:** I've added a method to POST to an API that uses NLP to identify the parts of speech in a sentence. More testing needs to be done in order to determine if this API will be suitable enough to accomplish the objective above.
-    - This API call is NOT currently implemented, but it does work.
+    - **Note:** This API call is **NOT** currently implemented, but it does work.
     - **Issues:** (as noted in appSettings.WordsToSwap.json)
       - "The pencil is his" comes back as PRP$ (Possessive Pronoun), but "The pencil is hers" comes back as NNS (Noun, plural).
       - "I'm looking at her" comes back as PRP$ (Possessive Pronoun), but "I'm looking at him" comes back as PRP (Personal Pronoun)
