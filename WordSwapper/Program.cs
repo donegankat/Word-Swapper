@@ -35,6 +35,15 @@ namespace WordSwapper
             var settings = new AppSettings();
             configuration.Bind(settings);
 
+            if (File.Exists("appSettings.WordsToSwap.Extra.json")) // If there are any extra words defined in a separate file called appSettings.WordsToSwap.Extra.json, add those to our list of words. Yes, this is kind of silly, but the words I define in this file are ones I don't really want on my GitHub :)
+            {
+                var extraWordsJson = File.ReadAllText("appSettings.WordsToSwap.Extra.json");
+                var extraSettings = JsonConvert.DeserializeObject<AppSettings>(extraWordsJson); // Convert the words found in the extra file into an AppSettings object (of which only the List<WordSwap> WordSwap object will be used.
+                
+                if (extraSettings != null && extraSettings.WordSwap != null && extraSettings.WordSwap.Count > 0)
+                    settings.WordSwap.AddRange(extraSettings.WordSwap); // Add the extra words to the main list of words.
+            }
+
             return settings;
         }
 
@@ -111,6 +120,8 @@ namespace WordSwapper
             }
 
             var stringToSwap = _loadFile(fileName);
+            stringToSwap = _replaceIllegalCharacters(stringToSwap); // Replace any common illegal characters in the body of the text
+
             var extension = Path.GetExtension(fileName);
 
             if (extension == ".html") // If the user wants to perform a swap on a local .html file, parse the html
@@ -165,6 +176,7 @@ namespace WordSwapper
             }
 
             var stringToSwap = _getHtmlTextFromUrl(url);
+            stringToSwap = _replaceIllegalCharacters(stringToSwap); // Replace any common illegal characters in the body of the text
 
             Console.WriteLine("ORIGINAL TEXT:");
             Console.WriteLine(stringToSwap);
@@ -212,6 +224,17 @@ namespace WordSwapper
 
                     // Perform replacements on any plural variations of the word
                     stringToSwap = _replaceWithCase(stringToSwap, pluralStringToFindRegex, pluralReplacementRegex);
+
+                    if (!string.IsNullOrWhiteSpace(word.OptionalPrefix)) // If the word has an optional prefix (e.g. mother/grandmother), perform the pluralized swap on the prefixed version of the word
+                    {
+                        pluralStringToFind = _pluralizer.Pluralize(word.OptionalPrefix + word.Word); // TODO: This is probably unnecessary because I can't think of an instance in which the prefix would impact the pluralization, but just in case leave it for now.
+                        pluralReplacement = _pluralizer.Pluralize(word.OptionalPrefix + word.Replacement);
+
+                        pluralStringToFindRegex = $@"{beginningWordBoundary}({pluralStringToFind}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
+                        pluralReplacementRegex = $@"{pluralReplacement}{_settings.ReplacementIndicator}";
+
+                        stringToSwap = _replaceWithCase(stringToSwap, pluralStringToFindRegex, pluralReplacementRegex);
+                    }
                 }
 
                 var stringToFindRegex = $@"{beginningWordBoundary}({word.Word}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
@@ -227,6 +250,14 @@ namespace WordSwapper
 
                 // Perform replacements on anything that's left over (i.e. the singular, non-possessive form of the word)
                 stringToSwap = _replaceWithCase(stringToSwap, stringToFindRegex, replacementRegex);
+
+                if (!string.IsNullOrWhiteSpace(word.OptionalPrefix)) // If the word has an optional prefix (e.g. mother/grandmother), perform the swap on the prefixed version of the word
+                {
+                    stringToFindRegex = $@"{beginningWordBoundary}({word.OptionalPrefix}{word.Word}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
+                    replacementRegex = $@"{word.OptionalPrefix}{word.Replacement}{_settings.ReplacementIndicator}";
+
+                    stringToSwap = _replaceWithCase(stringToSwap, stringToFindRegex, replacementRegex);
+                }
             }
 
             // Get rid of all of the indicators that we inserted to show that a word had already been replaced.
@@ -238,6 +269,25 @@ namespace WordSwapper
 
 
         #region Text Functions
+
+        /// <summary>
+        /// Replace any common illegal characters in the body of the text with a plain-text-friendly version.
+        /// 
+        /// NOTE: This isn't currently doing me any good because the file isn't loading in an encoding that recognizes these chars so they're all just appearing as black diamonds with question marks in them.
+        /// </summary>
+        /// <param name="fileText"></param>
+        /// <returns></returns>
+        private static string _replaceIllegalCharacters(string fileText)
+        {
+            fileText = fileText
+                .Replace("…", "...") // Weird, single-character representation of an ellipsis
+                .Replace("‘", "'") // Funky opening single-quote
+                .Replace("’", "'") // Funky closing single-quote/apostrophe
+                .Replace("“", "\"") // Funky opening double-quote
+                .Replace("”", "\"") // Funky closing double-quote
+                .Replace("—", "-"); // Funky dash
+            return fileText;
+        }
 
         /// <summary>
         /// Replaces all instances of one word in a given string with a new replacement word.
@@ -270,7 +320,7 @@ namespace WordSwapper
         {
             HttpClient httpClient = new HttpClient();
             
-            var textContent = new StringContent($"text={textToTag}&output=iob", UnicodeEncoding.UTF8, "application/json");
+            var textContent = new StringContent($"text={textToTag}&output=iob", Encoding.UTF8, "application/json");
 
             try
             {
@@ -352,13 +402,19 @@ namespace WordSwapper
 
         private static string _loadFile(string fileName)
         {
-            return File.ReadAllText($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}");
+            // StreamReader can detect encoding, but in this case it doesn't really do me much good because it's just detecting UTF-8 on the file I'm having issues with.
+            //using (var stream = new StreamReader($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}", true))
+            //{
+            //    return File.ReadAllText($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}", stream.CurrentEncoding);
+            //}
+            return File.ReadAllText($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}", Encoding.UTF8);
         }
 
         private static void _saveFile(string fileName, string fileText)
         {            
             File.WriteAllText($"{_rootProjectDirectory}/{_settings.SourceDirectory}/{fileName}", fileText);
         }
+
         #endregion
     }
 }

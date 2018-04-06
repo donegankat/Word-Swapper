@@ -42,32 +42,10 @@ namespace WordSwapper
         {
             RemoveHeadSection();
             RemoveScripts();
-            RemoveHrefLineBreaks(_html.DocumentNode);
-        }
-
-        private void RemoveHrefLineBreaks(HtmlNode node)
-        {
-            foreach (var subnode in node.ChildNodes)
-            {
-                if (subnode.HasAttributes && subnode.Attributes["href"] != null)
-                {
-                    var href = subnode.Attributes["href"].Value;
-
-                    if (!string.IsNullOrEmpty(href))
-                    {
-                        href = Regex.Replace(href, @"[\r|\n]", "");
-                        subnode.SetAttributeValue("href", href);
-                    }
-                }
-
-                //Recursivly Go Down the tree and check for further hrefs
-                if (subnode.HasChildNodes)
-                    RemoveHrefLineBreaks(subnode);
-            }
         }
 
         /// <summary>
-        /// Removes scripts from the objects html string
+        /// Removes scripts from the object's HTML string.
         /// </summary>
         public void RemoveScripts()
         {
@@ -90,13 +68,13 @@ namespace WordSwapper
         }
 
         /// <summary>
-        /// Extracts the text from the objects provided html String. Basic Fromating is kept in tact (ie new lines)
+        /// Extracts the text from the objects provided HTML string. Basic formatting is kept intact (i.e. new lines).
         /// </summary>
         /// <returns></returns>
         public string ExtractText()
         {
-            //convert methods from html agility examples here:
-            //http://htmlagilitypack.codeplex.com/SourceControl/changeset/view/94773#1336937
+            // Convert methods from html agility examples here:
+            // http://htmlagilitypack.codeplex.com/SourceControl/changeset/view/94773#1336937
             using (var sw = new StringWriter())
             {
                 var articleNode = _html.DocumentNode.SelectSingleNode("//article");
@@ -120,7 +98,7 @@ namespace WordSwapper
             switch (node.NodeType)
             {
                 case HtmlNodeType.Comment:
-                    // don't output comments
+                    // Don't output comments.
                     break;
 
                 case HtmlNodeType.Document:
@@ -128,19 +106,20 @@ namespace WordSwapper
                     break;
 
                 case HtmlNodeType.Text:
-                    // script and style must not be output
+                    // Script and style must not be output.
+                    // NOTE: For some reason this doesn't catch all of the <script> nodes, so we also use a custom RemoveScripts() method above.
                     var parentName = node.ParentNode.Name;
                     if ((parentName == "script") || (parentName == "style"))
                         break;
 
-                    // get text
+                    // Get text
                     htmlString = ((HtmlTextNode)node).Text;
 
-                    // is it in fact a special closing node output as text?
+                    // Is it in fact a special closing node output as text?
                     if (HtmlNode.IsOverlappedClosingElement(htmlString))
                         break;
 
-                    // check the text is meaningful and not a bunch of whitespaces
+                    // Check the text is meaningful and not a bunch of whitespaces.
                     if (htmlString.Trim().Length > 0)
                     {
                         outText.Write(HtmlEntity.DeEntitize(htmlString));
@@ -150,6 +129,7 @@ namespace WordSwapper
                 case HtmlNodeType.Element:
                     switch (node.Name)
                     {
+                        // Treat paragraphs, headers, and other line-breaking elements as CRLF.
                         case "h1":
                         case "h2":
                         case "h3":
