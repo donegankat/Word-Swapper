@@ -15,6 +15,22 @@ The following example will find any instance of the word `man` and replace it wi
   - In this example, the program would find any instances of the word `men` and replace it with `women`.
 - **Note:** The regular expressions for finding and replacing words (both plural and singular) will also find and replace any possessive (i.e. ending in `'` or `'s`) forms of the words.
 
+### Optional Prefixes
+To simplify the list of words, you can optionally specify an `OptionalPrefix`:
+```json
+{
+  "Word": "father",
+  "Replacement": "mother",
+  "CanBePlural": true,
+  "OptionalPrefix": "grand"
+}
+```
+This example will replace the following words:
+- `father` -> `mother`
+- `fathers` -> `mothers`
+- `grandfather` -> `grandmother`
+- `grandfathers` -> `grandmothers`
+
 # Notes
 - **Update 04/04/2018:** This program now has 2 modes of running: read & swap from a local file or fetch & swap from a URL. The user is prompted at startup which mode they would like to run in and then prompted for the appropriate file name or URL.
 - Place any files you want to read from and perform the swapping on into the [Sources](WordSwapper/Sources) folder.
