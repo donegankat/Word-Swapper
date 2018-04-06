@@ -214,48 +214,38 @@ namespace WordSwapper
 
             foreach (var word in _settings.WordSwap)
             {
-                if (word.CanBePlural)
+                var allWordVariations = _wordWithPrefixesAndSuffixes(word); // Get all variations of each word, including prefixes, suffixes, and prefixes with suffixes
+
+                if (word.Word == "father")//word.OptionalSuffixes != null || word.OptionalPrefixes != null)
                 {
-                    string pluralStringToFind = _pluralizer.Pluralize(word.Word);
-                    string pluralReplacement = _pluralizer.Pluralize(word.Replacement);
-
-                    var pluralStringToFindRegex = $@"{beginningWordBoundary}({pluralStringToFind}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
-                    var pluralReplacementRegex = $@"{pluralReplacement}{_settings.ReplacementIndicator}";
-
-                    // Perform replacements on any plural variations of the word
-                    stringToSwap = _replaceWithCase(stringToSwap, pluralStringToFindRegex, pluralReplacementRegex);
-
-                    if (!string.IsNullOrWhiteSpace(word.OptionalPrefix)) // If the word has an optional prefix (e.g. mother/grandmother), perform the pluralized swap on the prefixed version of the word
+                    string s = "";
+                }
+                foreach (var wordVariation in allWordVariations)
+                {
+                    if (wordVariation.CanBePlural)
                     {
-                        pluralStringToFind = _pluralizer.Pluralize(word.OptionalPrefix + word.Word); // TODO: This is probably unnecessary because I can't think of an instance in which the prefix would impact the pluralization, but just in case leave it for now.
-                        pluralReplacement = _pluralizer.Pluralize(word.OptionalPrefix + word.Replacement);
+                        string pluralStringToFind = _pluralizer.Pluralize(wordVariation.Word);
+                        string pluralReplacement = _pluralizer.Pluralize(wordVariation.Replacement);
 
-                        pluralStringToFindRegex = $@"{beginningWordBoundary}({pluralStringToFind}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
-                        pluralReplacementRegex = $@"{pluralReplacement}{_settings.ReplacementIndicator}";
+                        var pluralStringToFindRegex = $@"{beginningWordBoundary}({pluralStringToFind}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
+                        var pluralReplacementRegex = $@"{pluralReplacement}{_settings.ReplacementIndicator}";
 
+                        // Perform replacements on any plural variations of the word
                         stringToSwap = _replaceWithCase(stringToSwap, pluralStringToFindRegex, pluralReplacementRegex);
                     }
-                }
 
-                var stringToFindRegex = $@"{beginningWordBoundary}({word.Word}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
-                var replacementRegex = $@"{word.Replacement}{_settings.ReplacementIndicator}";
+                    var stringToFindRegex = $@"{beginningWordBoundary}({wordVariation.Word}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
+                    var replacementRegex = $@"{wordVariation.Replacement}{_settings.ReplacementIndicator}";
 
-                if (word.IsSpecialCase)
-                {
-                    // TODO: Find sentences containing the special case words.
-                    // TODO: Perform _tagPartsOfSpeech on these sentences and figure out if we can identify which word we should replace the target word with.
-                    // This will all take some additional thought and consideration about how I want to store these special cases in the .json.
-                    // Testing also needs to be performed in order to figure out if the NLP API I'm using will actually work in most cases for the intended purpose.
-                }
+                    if (wordVariation.IsSpecialCase)
+                    {
+                        // TODO: Find sentences containing the special case words.
+                        // TODO: Perform _tagPartsOfSpeech on these sentences and figure out if we can identify which word we should replace the target word with.
+                        // This will all take some additional thought and consideration about how I want to store these special cases in the .json.
+                        // Testing also needs to be performed in order to figure out if the NLP API I'm using will actually work in most cases for the intended purpose.
+                    }
 
-                // Perform replacements on anything that's left over (i.e. the singular, non-possessive form of the word)
-                stringToSwap = _replaceWithCase(stringToSwap, stringToFindRegex, replacementRegex);
-
-                if (!string.IsNullOrWhiteSpace(word.OptionalPrefix)) // If the word has an optional prefix (e.g. mother/grandmother), perform the swap on the prefixed version of the word
-                {
-                    stringToFindRegex = $@"{beginningWordBoundary}({word.OptionalPrefix}{word.Word}){negativeLookAhead}\b"; // Look for matches that don't already have a replacement indicator
-                    replacementRegex = $@"{word.OptionalPrefix}{word.Replacement}{_settings.ReplacementIndicator}";
-
+                    // Perform replacements on anything that's left over (i.e. the singular, non-possessive form of the word)
                     stringToSwap = _replaceWithCase(stringToSwap, stringToFindRegex, replacementRegex);
                 }
             }
@@ -264,6 +254,58 @@ namespace WordSwapper
             stringToSwap = Regex.Replace(stringToSwap, @_settings.ReplacementIndicatorRegex, @"");
 
             return stringToSwap;
+        }
+
+        /// <summary>
+        /// Get all variations of a word and its replacement, including prefixes, suffixes, and prefixes with suffixes
+        /// </summary>
+        /// <param name="word"></param>
+        /// <returns></returns>
+        private static List<WordSwap> _wordWithPrefixesAndSuffixes(WordSwap word)
+        {
+            var allVariations = new List<WordSwap>();
+            allVariations.Add(word); // Add the base word
+
+            if (word.OptionalPrefixes != null && word.OptionalPrefixes.Count > 0)
+            {
+                foreach (var prefix in word.OptionalPrefixes) // Add all variations of prefixes
+                {
+                    allVariations.Add(new WordSwap
+                    {
+                        Word = prefix + word.Word,
+                        Replacement = prefix + word.Replacement,
+                        CanBePlural = word.CanBePlural
+                    });
+
+                    if (word.OptionalSuffixes != null && word.OptionalSuffixes.Count > 0)
+                    {
+                        foreach (var suffix in word.OptionalSuffixes) // Add all variations of prefixes with suffixes
+                        {
+                            allVariations.Add(new WordSwap
+                            {
+                                Word = prefix + word.Word + suffix,
+                                Replacement = prefix + word.Replacement + suffix,
+                                CanBePlural = word.CanBePlural
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (word.OptionalSuffixes != null && word.OptionalSuffixes.Count > 0)
+            {
+                foreach (var suffix in word.OptionalSuffixes) // Add all variations of suffixes
+                {
+                    allVariations.Add(new WordSwap
+                    {
+                        Word = word.Word + suffix,
+                        Replacement = word.Replacement + suffix,
+                        CanBePlural = word.CanBePlural
+                    });
+                }
+            }
+
+            return allVariations;
         }
         #endregion
 
